@@ -9,11 +9,9 @@ COPY pyproject.toml README.md ./
 COPY src/ ./src/
 
 RUN python -m pip install --no-cache-dir . \
-    && useradd --system --no-create-home --shell /usr/sbin/nologin njord \
-    && mkdir -p /var/lib/njord \
-    && chown njord:njord /var/lib/njord
+    && mkdir -p /var/lib/njord
 
-USER njord
+VOLUME /var/lib/njord
 
 EXPOSE 8000
 
