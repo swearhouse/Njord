@@ -14,7 +14,7 @@ from pathlib import Path
 from flask import (Flask, abort, flash, jsonify, redirect, render_template,
                    request, send_file, session, url_for)
 
-DATA_DIR = Path(os.environ.get("NJORD_DATA_DIR", Path(__file__).parent / "data"))
+DATA_DIR = Path(os.environ.get("NJORD_DATA_DIR", Path(__file__).resolve().parents[2] / "instance"))
 DATA_FILE = DATA_DIR / "data.json"
 USERS_FILE = DATA_DIR / "users.json"
 SECRET_FILE = DATA_DIR / ".secret_key"
@@ -647,7 +647,7 @@ def create_app():
     return app
 
 
-app = create_app()
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000)
+    from waitress import serve
+
+    serve(create_app(), host="0.0.0.0", port=8000)

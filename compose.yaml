@@ -1,8 +1,11 @@
 services:
   njord:
     build: .
+    volumes:
+      - njord-data:/var/lib/njord
     ports:
       - "8000:8000"
-    volumes:
-      - ./data:/data
     restart: unless-stopped
+
+volumes:
+  njord-data:

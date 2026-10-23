@@ -20,26 +20,29 @@ A small, self-hosted Flask app for tracking your monthly budget and loans.
 docker compose up -d --build
 ```
 
-Then open <http://localhost:8000>. Data is stored in `./data` on the host.
+Then open <http://localhost:8000>. Data is stored in the `njord-data` Docker volume (`/var/lib/njord` in the container).
 
 ## Running locally
 
-Requires Python 3.12+.
+Requires Python 3.10+.
 
 ```sh
-pip install -r requirements.txt
-python app.py
+pip install -e .
+python -m njord
 ```
 
-The app listens on port 8000. For production use, run it with gunicorn using a single worker, since file access is guarded by an in-process lock:
+The app listens on port 8000 and is served by waitress. Run a single process, since file access is guarded by an in-process lock.
+
+To run the tests:
 
 ```sh
-gunicorn --workers 1 --threads 4 --bind 0.0.0.0:8000 app:app
+pip install ".[test]"
+pytest
 ```
 
 ## Login
 
-On first start, a default user is created: **admin** / **admin**. Change it right away by editing `data/users.json`:
+On first start, a default user is created: **admin** / **admin**. Change it right away by editing `users.json` in the data directory:
 
 ```json
 {"admin": "your-new-password"}
@@ -51,8 +54,8 @@ Passwords are stored in plain text, so only run Njord on a trusted network or be
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `NJORD_DATA_DIR` | Directory for stored data | `./data` (`/data` in Docker) |
-| `NJORD_SECRET_KEY` | Flask session secret | Generated into `data/.secret_key` |
+| `NJORD_DATA_DIR` | Directory for stored data | `./instance` (`/var/lib/njord` in Docker) |
+| `NJORD_SECRET_KEY` | Flask session secret | Generated into `.secret_key` in the data directory |
 
 ## Data
 
