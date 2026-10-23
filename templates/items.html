@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% from "_macros.html" import fields, row with context %}
+{% macro head() %}
+<div class="item-head"><span>Name</span><span>Type</span><span>Amount</span><span>Category</span><span>Asset</span><span></span><span></span></div>
+{% endmacro %}
+{% macro group(title, kind, rows) %}
+<h2>{{ title }}</h2>
+<div class="list card" data-kind="{{ kind }}">
+  {{ head() }}
+  {% for i in rows %}{{ row(i) }}{% endfor %}
+  <p class="empty"{% if rows %} hidden{% endif %}><em>Nothing yet.</em></p>
+</div>
+{% endmacro %}
+{% block content %}
+<h1>Edit items <small>({{ currency }} per month)</small></h1>
+
+<h2>Add new</h2>
+<div class="card">
+  {{ head() }}
+  <form method="post" action="{{ url_for('add_item') }}" class="item-row" id="add-form">
+    {{ fields(none) }}
+    <button>Add</button>
+    <span></span>
+  </form>
+  <p id="add-msg" class="status err" role="alert"></p>
+</div>
+
+{{ group("Income", "income", items|selectattr("type", "equalto", "income")|list) }}
+{{ group("Expenses", "expense", items|selectattr("type", "equalto", "expense")|list) }}
+
+<script>
+(() => {
+  const HEADERS = {'X-Requested-With': 'fetch'};
+  const listFor = kind => document.querySelector('.list[data-kind="' + kind + '"]');
+  const refreshEmpty = () => document.querySelectorAll('.list').forEach(list => {
+    list.querySelector('.empty').hidden = list.querySelector('.item-row') !== null;
+  });
+  const post = async (url, body) => {
+    const res = await fetch(url, {method: 'POST', body, headers: HEADERS});
+    const data = await res.json().catch(() => ({}));
+    return {ok: res.ok && data.ok, data};
+  };
+  const show = (el, text, cls) => {
+    el.textContent = text;
+    el.className = 'status ' + cls;
+    clearTimeout(el._t);
+    if (cls === 'ok') el._t = setTimeout(() => { el.textContent = ''; }, 1500);
+  };
+
+  async function save(form) {
+    const status = form.querySelector('.status');
+    if (!form.reportValidity()) return;
+    show(status, 'Saving…', '');
+    try {
+      const {ok, data} = await post(form.action, new FormData(form));
+      if (!ok) return show(status, data.error || 'Save failed', 'err');
+      show(status, 'Saved', 'ok');
+      const target = listFor(form.elements.type.value);
+      if (form.parentElement !== target) {
+        target.insertBefore(form, target.querySelector('.empty'));
+        refreshEmpty();
+      }
+    } catch (e) {
+      show(status, 'Save failed', 'err');
+    }
+  }
+
+  async function remove(form) {
+    if (!confirm('Delete this item?')) return;
+    const status = form.querySelector('.status');
+    try {
+      const {ok} = await post(form.dataset.deleteUrl, new FormData());
+      if (!ok) return show(status, 'Delete failed', 'err');
+      form.remove();
+      refreshEmpty();
+    } catch (e) {
+      show(status, 'Delete failed', 'err');
+    }
+  }
+
+  async function add(form) {
+    const msg = document.getElementById('add-msg');
+    if (!form.reportValidity()) return;
+    msg.textContent = '';
+    try {
+      const {ok, data} = await post(form.action, new FormData(form));
+      if (!ok) { msg.textContent = data.error || 'Could not add item'; return; }
+      const tpl = document.createElement('template');
+      tpl.innerHTML = data.html.trim();
+      const target = listFor(data.kind);
+      target.insertBefore(tpl.content.firstElementChild, target.querySelector('.empty'));
+      refreshEmpty();
+      form.elements.name.value = '';
+      form.elements.amount.value = '';
+      form.elements.name.focus();
+    } catch (e) {
+      msg.textContent = 'Could not add item';
+    }
+  }
+
+  document.addEventListener('change', e => {
+    const form = e.target.closest('form.autosave');
+    if (form) save(form);
+  });
+  document.addEventListener('submit', e => {
+    const form = e.target;
+    if (form.matches('form.autosave')) { e.preventDefault(); save(form); }
+    else if (form.id === 'add-form') { e.preventDefault(); add(form); }
+  });
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('button.delete');
+    if (btn) remove(btn.closest('form'));
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% from "_loan_macros.html" import fields, row with context %}
+{% macro head() %}
+<div class="loan-fields loan-head"><span>Name</span><span>Balance ({{ currency }})</span><span>Rate %</span><span>Payment / mo ({{ currency }})</span><span>Fee / mo ({{ currency }})</span><span>Asset</span><span></span><span></span></div>
+{% endmacro %}
+{% block content %}
+<h1>Loans <small>({{ currency }})</small></h1>
+<p><a href="{{ url_for('payoff') }}">View combined payoff of all loans &rarr;</a></p>
+<p><small>Each loan's monthly payment is counted in your monthly expenses automatically, under "Loans &amp; debt" and its asset &mdash; so don't also add it as a normal item. The fee is the part of the payment that doesn't reduce the balance. The payoff date is an estimate that assumes a fixed rate.</small></p>
+
+<h2>Add loan</h2>
+<div class="card">
+  {{ head() }}
+  <form method="post" action="{{ url_for('add_loan') }}" class="loan-row" id="add-form">
+    <div class="loan-fields">
+      {{ fields(none) }}
+      <button>Add</button>
+      <span></span>
+    </div>
+  </form>
+  <p id="add-msg" class="status err" role="alert"></p>
+</div>
+
+<h2>Your loans</h2>
+<div class="card" id="loan-list">
+  {{ head() }}
+  {% for l, c in loans %}{{ row(l, c) }}{% endfor %}
+  <p class="empty"{% if loans %} hidden{% endif %}><em>No loans yet.</em></p>
+</div>
+
+<script>
+(() => {
+  const HEADERS = {'X-Requested-With': 'fetch'};
+  const list = document.getElementById('loan-list');
+  const refreshEmpty = () => {
+    list.querySelector('.empty').hidden = list.querySelector('.loan-row') !== null;
+  };
+  const post = async (url, body) => {
+    const res = await fetch(url, {method: 'POST', body, headers: HEADERS});
+    const data = await res.json().catch(() => ({}));
+    return {ok: res.ok && data.ok, data};
+  };
+  const show = (el, text, cls) => {
+    el.textContent = text;
+    el.className = 'status ' + cls;
+    clearTimeout(el._t);
+    if (cls === 'ok') el._t = setTimeout(() => { el.textContent = ''; }, 1500);
+  };
+
+  async function save(form) {
+    const status = form.querySelector('.status');
+    if (!form.reportValidity()) return;
+    show(status, 'Saving…', '');
+    try {
+      const {ok, data} = await post(form.action, new FormData(form));
+      if (!ok) return show(status, data.error || 'Save failed', 'err');
+      form.querySelector('.loan-result').innerHTML = data.result;
+      show(status, 'Saved', 'ok');
+    } catch (e) {
+      show(status, 'Save failed', 'err');
+    }
+  }
+
+  async function remove(form) {
+    if (!confirm('Delete this loan?')) return;
+    const status = form.querySelector('.status');
+    try {
+      const {ok} = await post(form.dataset.deleteUrl, new FormData());
+      if (!ok) return show(status, 'Delete failed', 'err');
+      form.remove();
+      refreshEmpty();
+    } catch (e) {
+      show(status, 'Delete failed', 'err');
+    }
+  }
+
+  async function add(form) {
+    const msg = document.getElementById('add-msg');
+    if (!form.reportValidity()) return;
+    msg.textContent = '';
+    try {
+      const {ok, data} = await post(form.action, new FormData(form));
+      if (!ok) { msg.textContent = data.error || 'Could not add loan'; return; }
+      const tpl = document.createElement('template');
+      tpl.innerHTML = data.html.trim();
+      list.insertBefore(tpl.content.firstElementChild, list.querySelector('.empty'));
+      refreshEmpty();
+      form.reset();
+      form.elements.name.focus();
+    } catch (e) {
+      msg.textContent = 'Could not add loan';
+    }
+  }
+
+  document.addEventListener('change', e => {
+    const form = e.target.closest('form.autosave');
+    if (form) save(form);
+  });
+  document.addEventListener('submit', e => {
+    const form = e.target;
+    if (form.matches('form.autosave')) { e.preventDefault(); save(form); }
+    else if (form.id === 'add-form') { e.preventDefault(); add(form); }
+  });
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('button.delete');
+    if (btn) remove(btn.closest('form'));
+  });
+})();
+</script>
+{% endblock %}

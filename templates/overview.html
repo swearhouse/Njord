@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% macro section(title, groups, total, cls) %}
+<h2>{{ title }}</h2>
+<table>
+  {% for g in groups %}
+  {% if g.label %}
+  <tr class="group"><td>{{ g.label }}</td><td class="num">{{ g.total|money }} {{ currency }}</td></tr>
+  {% endif %}
+  {% for i in g.rows %}
+  <tr><td{% if g.label %} class="indent"{% endif %}>{{ i.name }}{% if i.loan %} <small>loan</small>{% endif %}
+        {% if mode != 'category' and i.category %}<small>{{ i.category }}</small>{% endif %}
+        {% if mode != 'asset' and i.asset_id in asset_names %}<small>{{ asset_names[i.asset_id] }}</small>{% endif %}</td>
+      <td class="num">{{ i.amount|money }} {{ currency }}</td></tr>
+  {% endfor %}
+  {% else %}
+  <tr><td colspan="2"><em>Nothing yet</em></td></tr>
+  {% endfor %}
+  <tr class="total {{ cls }}"><td>Total</td><td class="num">{{ total|money }} {{ currency }}</td></tr>
+</table>
+{% endmacro %}
+{% macro pie(title, slices) %}
+<div class="card pie">
+  <h3>{{ title }}</h3>
+  {% if slices %}
+  <div class="pie-body">
+    <svg viewBox="0 0 200 200" role="img" aria-label="{{ title }}">
+      {% for s in slices %}
+        {% if s.path %}<path d="{{ s.path }}" fill="{{ s.color }}" stroke="#fff" stroke-width="1.5"><title>{{ s.label }}: {{ s.total|money }} {{ currency }} ({{ '%.1f'|format(s.pct) }}%)</title></path>
+        {% else %}<circle cx="100" cy="100" r="90" fill="{{ s.color }}"><title>{{ s.label }}: {{ s.total|money }} {{ currency }} (100%)</title></circle>{% endif %}
+      {% endfor %}
+    </svg>
+    <ul class="legend">
+      {% for s in slices %}
+      <li><span class="dot" style="background: {{ s.color }}"></span>{{ s.label }}
+        <span class="pct">{{ '%.0f'|format(s.pct) }}% &middot; {{ s.total|money }} {{ currency }}</span></li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% else %}
+  <p class="empty"><em>No expenses yet.</em></p>
+  {% endif %}
+</div>
+{% endmacro %}
+{% block content %}
+<h1>Monthly overview <small>({{ currency }})</small></h1>
+<div class="summary">
+  <div><span>In</span><b class="pos">{{ total_in|money }} {{ currency }}</b></div>
+  <div><span>Out</span><b class="neg">{{ total_out|money }} {{ currency }}</b></div>
+  <div><span>Left</span><b class="{{ 'pos' if left >= 0 else 'neg' }}">{{ left|money }} {{ currency }}</b></div>
+</div>
+<div class="pies">
+  {{ pie("Expenses by asset", pie_asset) }}
+  {{ pie("Expenses by category", pie_category) }}
+</div>
+{% if loans %}
+<h2>Loans</h2>
+<p><small><a href="{{ url_for('payoff') }}">Combined payoff of all loans &rarr;</a></small></p>
+<table class="loans-card">
+  {% for l, c in loans %}
+  <tr><td><a href="{{ url_for('loan_detail', loan_id=l.id) }}">{{ l.name }}</a>{% if l.asset_id in asset_names %} <small>{{ asset_names[l.asset_id] }}</small>{% endif %}</td>
+      <td>{% if c.status == 'ok' %}Free in {% if c.years %}{{ c.years }} yr {% endif %}{{ c.rem_months }} mo ({{ c.payoff }})
+          {% elif c.status == 'paid' %}Paid off{% else %}<span class="neg">Never ends at this payment</span>{% endif %}</td>
+      <td class="num">{{ l.payment|money }} {{ currency }}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+<p class="tabs">Group by:
+  <a href="{{ url_for('overview') }}" class="{{ 'on' if mode == 'none' }}">None</a>
+  <a href="{{ url_for('overview', group='asset') }}" class="{{ 'on' if mode == 'asset' }}">Asset</a>
+  <a href="{{ url_for('overview', group='category') }}" class="{{ 'on' if mode == 'category' }}">Category</a>
+</p>
+{{ section("Income", income, total_in, "pos") }}
+{{ section("Expenses", expenses, total_out, "neg") }}
+{% endblock %}

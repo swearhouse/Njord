@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Options</h1>
+<form method="post" class="stack">
+  <label for="currency">Currency</label>
+  <input id="currency" name="currency" value="{{ currency }}" maxlength="10" required>
+  <button>Save</button>
+</form>
+
+<h2>Data backup</h2>
+<p><a class="button" href="{{ url_for('download_data') }}">Download data.json</a></p>
+<p><small>Upload a previously downloaded data.json file to replace the app's current data.</small></p>
+<form method="post" action="{{ url_for('upload_data') }}" enctype="multipart/form-data" class="stack">
+  <label for="data-file">Upload data.json</label>
+  <input id="data-file" name="data_file" type="file" accept=".json,application/json" required>
+  <button class="danger" onclick="return confirm('This will replace all current data. Continue?')">Upload and replace data</button>
+</form>
+
+<h2>Assets</h2>
+<p><small>Things your costs belong to, like a house or a car. Pick one per item on the Edit items page.</small></p>
+<form method="post" action="{{ url_for('add_asset') }}" class="row">
+  <input name="name" placeholder="New asset (e.g. House)" maxlength="50" required>
+  <button>Add</button>
+</form>
+{% for a in assets %}
+<div class="row-wrap">
+  <form method="post" action="{{ url_for('rename_asset', asset_id=a.id) }}" class="row">
+    <input name="name" value="{{ a.name }}" maxlength="50" required>
+    <button>Rename</button>
+  </form>
+  <form method="post" action="{{ url_for('delete_asset', asset_id=a.id) }}" onsubmit="return confirm('Delete this asset? Items keep existing but lose the link.')">
+    <button class="danger">Delete</button>
+  </form>
+</div>
+{% else %}
+<p><em>No assets yet.</em></p>
+{% endfor %}
+{% endblock %}

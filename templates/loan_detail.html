@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "_loan_macros.html" import result with context %}
+{% block content %}
+<p><a href="{{ url_for('loans') }}">&larr; All loans</a></p>
+<h1>{{ loan.name }} {% if asset %}<small>{{ asset }}</small>{% endif %}</h1>
+
+<div class="summary">
+  <div><span>Balance now</span><b>{{ loan.balance|money }} {{ currency }}</b></div>
+  <div><span>Rate</span><b>{{ loan.rate|round(2) }} %</b></div>
+  <div><span>Payment / month</span><b>{{ loan.payment|money }} {{ currency }}</b></div>
+</div>
+<div class="card loan-result">{{ result(calc) }}</div>
+<p><small>Estimate with a fixed rate, starting from today's balance with the first payment next month. Edit the numbers on the Loans page.</small></p>
+
+{% if years %}
+<h2>Balance over time</h2>
+<table class="schedule">
+  <thead>
+    <tr><th>Year / month</th><th class="num">Payment</th><th class="num">Interest</th>
+        <th class="num">Principal</th><th class="num">Left on loan</th></tr>
+  </thead>
+  {% for y in years %}
+  <tbody>
+    <tr class="group year" data-year="{{ y.year }}">
+      <td><button type="button" class="toggle" aria-expanded="false">&#9656;</button> {{ y.year }}</td>
+      <td class="num">{{ y.paid|money }} {{ currency }}</td>
+      <td class="num">{{ y.interest|money }} {{ currency }}</td>
+      <td class="num">{{ (y.paid - y.interest)|money }} {{ currency }}</td>
+      <td class="num">{{ y.end_balance|money }} {{ currency }}</td>
+    </tr>
+    {% for r in y.rows %}
+    <tr class="month" hidden>
+      <td class="indent">{{ r.label }}</td>
+      <td class="num">{{ r.payment|money }} {{ currency }}</td>
+      <td class="num">{{ r.interest|money }} {{ currency }}</td>
+      <td class="num">{{ r.principal|money }} {{ currency }}</td>
+      <td class="num">{{ r.balance|money }} {{ currency }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  {% endfor %}
+</table>
+<p><small>Amounts in {{ currency }}. Click a year to see its months. Year rows show totals for the year and the balance at year end.</small></p>
+<p><button type="button" id="expand-all">Expand all</button></p>
+
+<script>
+(() => {
+  const setOpen = (tbody, open) => {
+    tbody.querySelectorAll('tr.month').forEach(tr => { tr.hidden = !open; });
+    const btn = tbody.querySelector('.toggle');
+    btn.setAttribute('aria-expanded', open);
+    btn.innerHTML = open ? '&#9662;' : '&#9656;';
+  };
+  const bodies = [...document.querySelectorAll('.schedule tbody')];
+  bodies.forEach(tb => tb.querySelector('.year').addEventListener('click', () =>
+    setOpen(tb, tb.querySelector('.toggle').getAttribute('aria-expanded') !== 'true')));
+  const all = document.getElementById('expand-all');
+  let expanded = false;
+  all.addEventListener('click', () => {
+    expanded = !expanded;
+    bodies.forEach(tb => setOpen(tb, expanded));
+    all.textContent = expanded ? 'Collapse all' : 'Expand all';
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

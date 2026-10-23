@@ -1,0 +1,36 @@
+{% macro result(c) %}
+{% if c.status == 'paid' %}
+  <span class="ok">Paid off</span>
+{% elif c.status == 'never' %}
+  <span class="warn">The payment doesn't cover the interest{% if c.min_payment %} &ndash; it needs to be above {{ c.min_payment|money }} {{ currency }}{% endif %}, so this loan never ends.</span>
+{% else %}
+  <span><b>Free in {% if c.years %}{{ c.years }} yr {% endif %}{{ c.rem_months }} mo</b> ({{ c.payoff }})</span>
+  <span>Interest left: <b>{{ c.interest|money }} {{ currency }}</b></span>
+  <span>Total left to pay: <b>{{ c.total|money }} {{ currency }}</b></span>
+  <span>Last payment: <b>{{ c.last_payment|money }} {{ currency }}</b></span>
+{% endif %}
+{% endmacro %}
+
+{% macro fields(l) %}
+  <input name="name" placeholder="Name" aria-label="Name" value="{{ l.name if l else '' }}" required>
+  <input name="balance" type="number" step="0.01" min="0" placeholder="Remaining balance" aria-label="Remaining balance" value="{{ l.balance if l else '' }}" required>
+  <input name="rate" type="number" step="0.01" min="0" max="100" placeholder="Rate %" aria-label="Interest rate in percent" value="{{ l.rate if l else '' }}" required>
+  <input name="payment" type="number" step="0.01" min="0" placeholder="Per month" aria-label="Monthly payment" value="{{ l.payment if l else '' }}" required>
+  <input name="fee" type="number" step="0.01" min="0" placeholder="Fee (optional)" aria-label="Monthly fee" value="{{ l.fee if l and l.fee else '' }}">
+  <select name="asset_id" aria-label="Asset">
+    <option value="">No asset</option>
+    {% for a in assets %}<option value="{{ a.id }}" {{ 'selected' if l and l.asset_id == a.id }}>{{ a.name }}</option>{% endfor %}
+  </select>
+{% endmacro %}
+
+{% macro row(l, c) %}
+<form method="post" action="{{ url_for('update_loan', loan_id=l.id) }}" class="loan-row autosave" data-delete-url="{{ url_for('delete_loan', loan_id=l.id) }}">
+  <div class="loan-fields">
+    {{ fields(l) }}
+    <span class="status"></span>
+    <button type="button" class="icon danger delete" title="Delete" aria-label="Delete">&#10005;</button>
+  </div>
+  <div class="loan-result">{{ result(c) }}</div>
+  <a class="detail-link" href="{{ url_for('loan_detail', loan_id=l.id) }}">View payoff schedule &rarr;</a>
+</form>
+{% endmacro %}
