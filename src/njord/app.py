@@ -546,9 +546,23 @@ def create_app():
             y["end_balance"] = y["rows"][-1]["balance"]
         asset = next((a["name"] for a in data.get("assets", [])
                       if a["id"] == loan.get("asset_id")), None)
-        return render_template("loan_detail.html", loan=loan, calc=loan_calc(loan),
+        calc = loan_calc(loan)
+        try:
+            extra = float(request.args.get("extra", "").replace(",", "."))
+        except ValueError:
+            extra = 0.0
+        if not math.isfinite(extra) or extra < 0:
+            extra = 0.0
+        extra_calc = None
+        if extra > 0:
+            extra_calc = loan_calc({**loan, "payment": loan["payment"] + extra})
+            if calc["status"] == "ok" and extra_calc["status"] == "ok":
+                extra_calc["saved_interest"] = calc["interest"] - extra_calc["interest"]
+                extra_calc["saved_months"] = calc["months"] - extra_calc["months"]
+        return render_template("loan_detail.html", loan=loan, calc=calc,
                                years=list(years.values()), asset=asset,
-                               currency=data["currency"])
+                               currency=data["currency"], extra=extra,
+                               extra_calc=extra_calc)
 
     @app.post("/loans/<loan_id>")
     @login_required

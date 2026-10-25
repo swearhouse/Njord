@@ -12,6 +12,40 @@
 <div class="card loan-result">{{ result(calc) }}</div>
 <p><small>Estimate with a fixed rate, starting from today's balance with the first payment next month. Edit the numbers on the Loans page.</small></p>
 
+{% if calc.status != 'paid' %}
+<h2>Pay extra each month</h2>
+<form method="get" class="card">
+  <label>Extra per month ({{ currency }})
+    <input name="extra" type="number" step="0.01" min="0" value="{{ extra if extra else '' }}" placeholder="0.00"></label>
+  <button type="submit">Compare</button>
+</form>
+{% if extra_calc %}
+{% if extra_calc.status != 'ok' %}
+<p class="warn">Even with {{ extra|money }} {{ currency }} extra, the payment doesn't cover the interest.</p>
+{% else %}
+<table class="schedule">
+  <thead><tr><th></th><th class="num">Current</th><th class="num">With +{{ extra|money }} {{ currency }}</th></tr></thead>
+  <tbody>
+    <tr><td>Payment / month</td><td class="num">{{ loan.payment|money }} {{ currency }}</td><td class="num">{{ (loan.payment + extra)|money }} {{ currency }}</td></tr>
+    <tr><td>Loan complete</td>
+      <td class="num">{% if calc.status == 'ok' %}{{ calc.payoff }}{% else %}Never{% endif %}</td>
+      <td class="num">{{ extra_calc.payoff }}</td></tr>
+    <tr><td>Time left</td>
+      <td class="num">{% if calc.status == 'ok' %}{% if calc.years %}{{ calc.years }} yr {% endif %}{{ calc.rem_months }} mo{% else %}&ndash;{% endif %}</td>
+      <td class="num">{% if extra_calc.years %}{{ extra_calc.years }} yr {% endif %}{{ extra_calc.rem_months }} mo</td></tr>
+    <tr><td>Interest to pay</td>
+      <td class="num">{% if calc.status == 'ok' %}{{ calc.interest|money }} {{ currency }}{% else %}&ndash;{% endif %}</td>
+      <td class="num">{{ extra_calc.interest|money }} {{ currency }}</td></tr>
+  </tbody>
+</table>
+{% if extra_calc.saved_interest is defined %}
+<p class="ok"><b>{{ extra_calc.saved_interest|money }} {{ currency }}</b> less interest, finished
+  {% set m = extra_calc.saved_months %}{% if m // 12 %}{{ m // 12 }} yr {% endif %}{{ m % 12 }} mo earlier.</p>
+{% endif %}
+{% endif %}
+{% endif %}
+{% endif %}
+
 {% if years %}
 <h2>Balance over time</h2>
 <table class="schedule">
