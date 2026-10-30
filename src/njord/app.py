@@ -547,21 +547,26 @@ def create_app():
         asset = next((a["name"] for a in data.get("assets", [])
                       if a["id"] == loan.get("asset_id")), None)
         calc = loan_calc(loan)
-        try:
-            extra = float(request.args.get("extra", "").replace(",", "."))
-        except ValueError:
-            extra = 0.0
-        if not math.isfinite(extra) or extra < 0:
-            extra = 0.0
+        def _amount(name):
+            try:
+                v = float(request.args.get(name, "").replace(",", "."))
+            except ValueError:
+                return 0.0
+            return v if math.isfinite(v) and v > 0 else 0.0
+        extra = _amount("extra")
+        lump = _amount("lump")
         extra_calc = None
-        if extra > 0:
-            extra_calc = loan_calc({**loan, "payment": loan["payment"] + extra})
-            if calc["status"] == "ok" and extra_calc["status"] == "ok":
-                extra_calc["saved_interest"] = calc["interest"] - extra_calc["interest"]
-                extra_calc["saved_months"] = calc["months"] - extra_calc["months"]
+        if extra > 0 or lump > 0:
+            extra_calc = loan_calc({**loan, "payment": loan["payment"] + extra,
+                                    "balance": max(loan["balance"] - lump, 0.0)})
+            if calc["status"] == "ok" and extra_calc["status"] in ("ok", "paid"):
+                new_interest = extra_calc.get("interest", 0.0)
+                new_months = extra_calc.get("months", 0)
+                extra_calc["saved_interest"] = calc["interest"] - new_interest
+                extra_calc["saved_months"] = calc["months"] - new_months
         return render_template("loan_detail.html", loan=loan, calc=calc,
                                years=list(years.values()), asset=asset,
-                               currency=data["currency"], extra=extra,
+                               currency=data["currency"],                                extra=extra, lump=lump,
                                extra_calc=extra_calc)
 
     @app.post("/loans/<loan_id>")

@@ -41,3 +41,14 @@ def test_download_data(client):
 def test_import_rejects_invalid_data():
     assert njord_app.validate_import_data({"currency": "", "items": []})
     assert njord_app.validate_import_data({"currency": "NOK", "items": []}) is None
+
+
+def test_loan_one_time_payment(client, tmp_path):
+    path = tmp_path / 'data.json'
+    data = json.loads(path.read_text())
+    data['loans'] = [{'id': 'l1', 'name': 'L', 'balance': 10000.0, 'rate': 5.0, 'payment': 500.0}]
+    path.write_text(json.dumps(data))
+    for query in ('lump=2000', 'lump=20000', 'lump=1000&extra=100'):
+        response = client.get('/loans/l1?' + query)
+        assert response.status_code == 200, query
+        assert 'Interest to pay' in response.get_data(as_text=True)

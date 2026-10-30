@@ -13,29 +13,32 @@
 <p><small>Estimate with a fixed rate, starting from today's balance with the first payment next month. Edit the numbers on the Loans page.</small></p>
 
 {% if calc.status != 'paid' %}
-<h2>Pay extra each month</h2>
+<h2>Pay extra</h2>
 <form method="get" class="card">
   <label>Extra per month ({{ currency }})
     <input name="extra" type="number" step="0.01" min="0" value="{{ extra if extra else '' }}" placeholder="0.00"></label>
+  <label>One-time payment now ({{ currency }})
+    <input name="lump" type="number" step="0.01" min="0" value="{{ lump if lump else '' }}" placeholder="0.00"></label>
   <button type="submit">Compare</button>
 </form>
 {% if extra_calc %}
-{% if extra_calc.status != 'ok' %}
-<p class="warn">Even with {{ extra|money }} {{ currency }} extra, the payment doesn't cover the interest.</p>
+{% set scenario %}{% if lump %}{{ lump|money }} {{ currency }} once{% endif %}{% if lump and extra %} + {% endif %}{% if extra %}{{ extra|money }} {{ currency }}/mo{% endif %}{% endset %}
+{% if extra_calc.status == 'never' %}
+<p class="warn">Even with {{ scenario }}, the payment doesn't cover the interest.</p>
 {% else %}
 <table class="schedule">
-  <thead><tr><th></th><th class="num">Current</th><th class="num">With +{{ extra|money }} {{ currency }}</th></tr></thead>
+  <thead><tr><th></th><th class="num">Current</th><th class="num">With {{ scenario }}</th></tr></thead>
   <tbody>
     <tr><td>Payment / month</td><td class="num">{{ loan.payment|money }} {{ currency }}</td><td class="num">{{ (loan.payment + extra)|money }} {{ currency }}</td></tr>
     <tr><td>Loan complete</td>
       <td class="num">{% if calc.status == 'ok' %}{{ calc.payoff }}{% else %}Never{% endif %}</td>
-      <td class="num">{{ extra_calc.payoff }}</td></tr>
+      <td class="num">{% if extra_calc.status == 'paid' %}Now{% else %}{{ extra_calc.payoff }}{% endif %}</td></tr>
     <tr><td>Time left</td>
       <td class="num">{% if calc.status == 'ok' %}{% if calc.years %}{{ calc.years }} yr {% endif %}{{ calc.rem_months }} mo{% else %}&ndash;{% endif %}</td>
-      <td class="num">{% if extra_calc.years %}{{ extra_calc.years }} yr {% endif %}{{ extra_calc.rem_months }} mo</td></tr>
+      <td class="num">{% if extra_calc.status == 'paid' %}0 mo{% else %}{% if extra_calc.years %}{{ extra_calc.years }} yr {% endif %}{{ extra_calc.rem_months }} mo{% endif %}</td></tr>
     <tr><td>Interest to pay</td>
       <td class="num">{% if calc.status == 'ok' %}{{ calc.interest|money }} {{ currency }}{% else %}&ndash;{% endif %}</td>
-      <td class="num">{{ extra_calc.interest|money }} {{ currency }}</td></tr>
+      <td class="num">{{ (extra_calc.interest or 0)|money }} {{ currency }}</td></tr>
   </tbody>
 </table>
 {% if extra_calc.saved_interest is defined %}
