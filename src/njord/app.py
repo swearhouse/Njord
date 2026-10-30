@@ -101,6 +101,11 @@ def validate_import_data(data):
         amount = item.get("amount")
         if not _valid_import_number(amount):
             return "Each item's amount must be a non-negative number."
+        if item.get("every", 1) not in FREQUENCY_LABELS or isinstance(item.get("every"), bool):
+            return "Each item's frequency must be a known number of months."
+        start = item.get("start", "")
+        if not isinstance(start, str) or (start and not valid_month(start)):
+            return "Each item's paid month must look like 2026-03 or be empty."
         category = item.get("category", "")
         if not isinstance(category, str) or (category and category not in ALL_CATEGORIES):
             return "Each item's category must be a known category or empty."
@@ -142,6 +147,69 @@ def get_secret_key():
     return SECRET_FILE.read_text().strip()
 
 
+FREQUENCY_LABELS = {1: "Monthly", 2: "Every 2 months", 3: "Quarterly", 4: "Every 4 months",
+                    6: "Every 6 months", 12: "Yearly", 24: "Every 2 years"}
+FREQUENCIES = list(FREQUENCY_LABELS.items())
+
+
+def valid_month(value):
+    return len(value) == 7 and value[:4].isdigit() and value[4] == "-" \
+        and value[5:].isdigit() and 1 <= int(value[5:]) <= 12 and int(value[:4]) >= 1900
+
+
+def pays_in(item, year, month):
+    """True if a dated recurring item is paid in the given month."""
+    start = item.get("start")
+    if not start:
+        return False
+    diff = (year - int(start[:4])) * 12 + month - int(start[5:])
+    return diff % item.get("every", 1) == 0
+
+
+def project(items, loans, months, today=None):
+    """Month-by-month cash flow. Irregular items without a paid month are averaged."""
+    today = today or date.today()
+    schedules = [loan_schedule(l, today) for l in loans]
+    out = []
+    cumulative = 0.0
+    for n in range(1, months + 1):
+        year, month = _add_months(today, n)
+        income, expenses, lines = 0.0, 0.0, []
+        for i in items:
+            every = i.get("every", 1)
+            if every == 1:
+                amount = i["amount"]
+            elif i.get("start"):
+                amount = i["amount"] if pays_in(i, year, month) else 0.0
+            else:
+                amount = i["amount"] / every
+            if amount <= 0:
+                continue
+            if i["type"] == "income":
+                income += amount
+            else:
+                expenses += amount
+            if every > 1 and i.get("start"):
+                lines.append({"name": i["name"], "type": i["type"], "amount": amount})
+        for l, rows in zip(loans, schedules):
+            if n <= len(rows):
+                expenses += rows[n - 1]["payment"]
+        cumulative += income - expenses
+        out.append({"label": f"{calendar.month_name[month]} {year}", "income": income,
+                    "expenses": expenses, "net": income - expenses,
+                    "cumulative": cumulative, "lines": lines})
+    return out
+
+
+def monthly_items(items):
+    """Copies of items whose amount is the monthly equivalent, keeping the original as 'paid'."""
+    out = []
+    for i in items:
+        every = i.get("every", 1)
+        out.append({**i, "paid": i["amount"], "every": every, "amount": i["amount"] / every})
+    return out
+
+
 def parse_item(form, asset_ids):
     name = form.get("name", "").strip()
     kind = form.get("type", "")
@@ -157,12 +225,21 @@ def parse_item(form, asset_ids):
         return None, "Type must be income or expense."
     if amount < 0:
         return None, "Amount can't be negative."
+    try:
+        every = int(form.get("every", "1") or 1)
+    except ValueError:
+        every = 0
+    if every not in FREQUENCY_LABELS:
+        return None, "Unknown frequency."
+    start = form.get("start", "").strip()
+    if start and not valid_month(start):
+        return None, "Paid month must look like 2026-03."
     if category and category not in ALL_CATEGORIES:
         return None, "Unknown category."
     if asset_id and asset_id not in asset_ids:
         return None, "Unknown asset."
-    return {"name": name, "type": kind, "amount": amount, "category": category,
-            "asset_id": asset_id or None}, None
+    return {"name": name, "type": kind, "amount": amount, "every": every, "start": start,
+            "category": category, "asset_id": asset_id or None}, None
 
 
 def _number(form, field, label, minimum=0.0, maximum=None):
@@ -320,6 +397,10 @@ def create_app():
             return view(*args, **kwargs)
         return wrapped
 
+    @app.context_processor
+    def inject_frequencies():
+        return {"frequencies": FREQUENCIES}
+
     @app.template_filter("money")
     def money(value):
         return f"{value:,.2f}".replace(",", " ")
@@ -351,7 +432,7 @@ def create_app():
         mode = request.args.get("group", "none")
         if mode not in ("none", "asset", "category"):
             mode = "none"
-        items = data["items"]
+        items = monthly_items(data["items"])
         loans = data.get("loans", [])
         income = [i for i in items if i["type"] == "income"]
         expenses = [i for i in items if i["type"] == "expense"] + loan_expenses(loans)
@@ -366,6 +447,22 @@ def create_app():
             pie_asset=pie_slices(expenses, "asset", assets),
             pie_category=pie_slices(expenses, "category", assets),
             total_in=total_in, total_out=total_out, left=total_in - total_out)
+
+    @app.get("/projection")
+    @login_required
+    def projection():
+        data = load_data()
+        try:
+            months = int(request.args.get("months", "12"))
+        except ValueError:
+            months = 12
+        if months not in (12, 24, 36, 60):
+            months = 12
+        loans = [l for l in data.get("loans", []) if l["balance"] > 0.005]
+        rows = project(data["items"], loans, months)
+        undated = [i for i in data["items"] if i.get("every", 1) > 1 and not i.get("start")]
+        return render_template("projection.html", currency=data["currency"], rows=rows,
+                               months=months, undated=undated)
 
     @app.get("/options")
     @login_required

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Projection <small>({{ currency }})</small></h1>
+<p class="tabs">Show:
+  {% for m in (12, 24, 36, 60) %}<a href="{{ url_for('projection', months=m) }}" class="{{ 'on' if months == m }}">{{ m }} months</a>{% endfor %}
+</p>
+<p><small>Items with a frequency and a paid month land in the months they actually fall due. Loans stop when paid off. Starts from next month.</small></p>
+{% if undated %}
+<p class="warn">No paid month set for {% for i in undated %}{{ i.name }}{{ ', ' if not loop.last }}{% endfor %}. These are averaged per month; set a paid month on the Edit items page for exact timing.</p>
+{% endif %}
+<table class="schedule">
+  <thead>
+    <tr><th>Month</th><th class="num">In</th><th class="num">Out</th>
+        <th class="num">Net</th><th class="num">Cumulative</th></tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.label }}{% for l in r.lines %}<br><small>{{ l.name }} {{ l.amount|money }}</small>{% endfor %}</td>
+      <td class="num">{{ r.income|money }}</td>
+      <td class="num">{{ r.expenses|money }}</td>
+      <td class="num {{ 'pos' if r.net >= 0 else 'neg' }}">{{ r.net|money }}</td>
+      <td class="num {{ 'pos' if r.cumulative >= 0 else 'neg' }}">{{ r.cumulative|money }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -52,3 +52,27 @@ def test_loan_one_time_payment(client, tmp_path):
         response = client.get('/loans/l1?' + query)
         assert response.status_code == 200, query
         assert 'Interest to pay' in response.get_data(as_text=True)
+
+
+def test_item_frequency(client, tmp_path):
+    base = {'name': 'Insurance', 'type': 'expense', 'amount': '1200', 'category': '', 'asset_id': ''}
+    assert client.post('/items', data={**base, 'every': '12'}).status_code == 302
+    assert client.post('/items', data={**base, 'every': '5'}).status_code == 302
+    items = json.loads((tmp_path / 'data.json').read_text())['items']
+    assert [i['every'] for i in items] == [12]
+    page = client.get('/').get_data(as_text=True)
+    assert '100.00' in page and 'yearly' in page
+    assert client.get('/items').status_code == 200
+
+
+def test_projection_uses_paid_month(client, tmp_path):
+    base = {'name': 'Insurance', 'type': 'expense', 'amount': '1200', 'category': '', 'asset_id': '', 'every': '12'}
+    assert client.post('/items', data={**base, 'start': '2026-13'}).status_code == 302
+    assert client.post('/items', data={**base, 'start': '2020-03'}).status_code == 302
+    items = json.loads((tmp_path / 'data.json').read_text())['items']
+    assert [i['start'] for i in items] == ['2020-03']
+    rows = njord_app.project(items, [], 24, today=njord_app.date(2026, 10, 15))
+    paid = [r['label'] for r in rows if r['expenses']]
+    assert paid == ['March 2027', 'March 2028']
+    assert client.get('/projection').status_code == 200
+    assert client.get('/projection?months=60').status_code == 200

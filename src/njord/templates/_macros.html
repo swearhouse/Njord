@@ -4,7 +4,11 @@
     <option value="income" {{ 'selected' if i and i.type == 'income' }}>Income</option>
     <option value="expense" {{ 'selected' if not i or i.type == 'expense' }}>Expense</option>
   </select>
-  <input name="amount" type="number" step="0.01" min="0" placeholder="Per month" aria-label="Amount per month" value="{{ i.amount if i else '' }}" required>
+  <input name="amount" type="number" step="0.01" min="0" placeholder="Amount" aria-label="Amount per payment" value="{{ i.amount if i else '' }}" required>
+  <select name="every" aria-label="Frequency">
+    {% for months, label in frequencies %}<option value="{{ months }}" {{ 'selected' if (i.every if i and i.every else 1) == months }}>{{ label }}</option>{% endfor %}
+  </select>
+  <input name="start" type="month" aria-label="A month it was paid" title="A month it was paid (past or upcoming). Used to find the next payment dates." value="{{ i.start if i and i.start else '' }}">
   <select name="category" aria-label="Category">
     <option value="">No category</option>
     {% for group, names in categories.items() %}

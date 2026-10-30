@@ -10,7 +10,7 @@
   <tr><td{% if g.label %} class="indent"{% endif %}>{{ i.name }}{% if i.loan %} <small>loan</small>{% endif %}
         {% if mode != 'category' and i.category %}<small>{{ i.category }}</small>{% endif %}
         {% if mode != 'asset' and i.asset_id in asset_names %}<small>{{ asset_names[i.asset_id] }}</small>{% endif %}</td>
-      <td class="num">{{ i.amount|money }} {{ currency }}</td></tr>
+      <td class="num">{{ i.amount|money }} {{ currency }}{% if i.every and i.every != 1 %}<br><small>{{ i.paid|money }} {{ currency }} &middot; {{ frequencies|selectattr(0, 'equalto', i.every)|map(attribute=1)|first|lower }}</small>{% endif %}</td></tr>
   {% endfor %}
   {% else %}
   <tr><td colspan="2"><em>Nothing yet</em></td></tr>
@@ -42,7 +42,7 @@
 </div>
 {% endmacro %}
 {% block content %}
-<h1>Monthly overview <small>({{ currency }})</small></h1>
+<h1>Monthly overview <small>({{ currency }}, irregular items averaged per month)</small></h1>
 <div class="summary">
   <div><span>In</span><b class="pos">{{ total_in|money }} {{ currency }}</b></div>
   <div><span>Out</span><b class="neg">{{ total_out|money }} {{ currency }}</b></div>

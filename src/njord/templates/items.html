@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import fields, row with context %}
 {% macro head() %}
-<div class="item-head"><span>Name</span><span>Type</span><span>Amount</span><span>Category</span><span>Asset</span><span></span><span></span></div>
+<div class="item-head"><span>Name</span><span>Type</span><span>Amount</span><span>Frequency</span><span>Paid month</span><span>Category</span><span>Asset</span><span></span><span></span></div>
 {% endmacro %}
 {% macro group(title, kind, rows) %}
 <h2>{{ title }}</h2>
@@ -12,7 +12,7 @@
 </div>
 {% endmacro %}
 {% block content %}
-<h1>Edit items <small>({{ currency }} per month)</small></h1>
+<h1>Edit items <small>({{ currency }} per payment)</small></h1>
 
 <h2>Add new</h2>
 <div class="card">

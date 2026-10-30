@@ -16,6 +16,7 @@
       <a href="{{ url_for('overview') }}">Overview</a>
       <a href="{{ url_for('items') }}">Edit items</a>
       <a href="{{ url_for('loans') }}">Loans</a>
+      <a href="{{ url_for('projection') }}">Projection</a>
       <a href="{{ url_for('options') }}">Options</a>
     </nav>
     <form method="post" action="{{ url_for('logout') }}"><button class="link">Log out ({{ session.user }})</button></form>
